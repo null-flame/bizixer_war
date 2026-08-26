@@ -1,12 +1,14 @@
-
+from contextlib import asynccontextmanager
 from datetime import timedelta, datetime, timezone
+import os
 import jwt
 from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import ConfigDict
-from sqlmodel import Field, SQLModel, create_engine, Session, select
-import os
-from dotenv import load_dotenv
+from sqlmodel import Field, SQLModel, select
+from sqlmodel.ext.asyncio import AsyncSession, create_async_engine
 from enum import Enum
+from dotenv import load_dotenv
+
 load_dotenv()
 
 
@@ -35,15 +37,13 @@ class UserO(SQLModel):
     username: str
     front: Front
 
-app = FastAPI()
+app = FastAPI(lifespan=on_startup)
 
 dbName = "db.db"
 
-DbUrl = f"sqlite:///{dbName}"
+DbUrl = f"sqlite+aiosqlite:///{dbName}"
 
-engine = create_engine(DbUrl)
-
-SQLModel.metadata.create_all(engine)
+engine = create_async_engine(DbUrl)
 
 ALG = "HS256"
 
@@ -77,19 +77,28 @@ async def get_user(request: Request):
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+@asynccontextmanager
+async def on_startup(app: FastAPI):
+    async with engine.begin() as db:
+        await db.run_sync(SQLModel.metadata.create_all)
+
+    yield
+
+    await engine.dispose()
 
 @app.post("/api/v1/register", response_model=UserO)
 async def reg(user: UserI, response: Response):
 
-    with Session(engine) as db:
+    async with AsyncSession(engine) as db:
         q = select(User).where(User.username == user.username)
-        r = db.exec(q).first()
+        r = await db.execute(q)
+        r = r.first()
         if r:
             raise HTTPException(status_code=400, detail="User already exists")
         user_db = User(username=user.username, password=user.password, front=user.front)
         db.add(user_db)
-        db.commit()
-        db.refresh(user_db)
+        await db.commit()
+        await db.refresh(user_db)
         token = await createToken(UserO(id=user_db.id, username=user_db.username, front=user_db.front))
         response.set_cookie(key="token", value=token, httponly=True)
 
@@ -98,9 +107,10 @@ async def reg(user: UserI, response: Response):
 
 @app.post("/api/v1/login", response_model=UserO)
 async def login(user: UserI, response: Response):
-    with Session(engine) as db:
+    async with AsyncSession(engine) as db:
         q = select(User).where((User.username == user.username) & (User.password == user.password))
-        r = db.exec(q).first()
+        r = await db.execute(q)
+        r = r.first()
         if not r:
             raise HTTPException(status_code=401, detail="Invalid username or password")
         token = await createToken(UserO(id=r.id, username=r.username, front=r.front))
