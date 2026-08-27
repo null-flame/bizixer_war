@@ -180,7 +180,7 @@ async def get_coin(id: int) -> int:
 
         sleep_time = (time_now - last_get_coin).total_seconds()
         add_coin = int(
-            (factory_T1 * (10 / 3600) * sleep_time)
+            (factory_T1 * (12 / 3600) * sleep_time)
             + (factory_T2 * (125 / 3600) * sleep_time)
             + (factory_T3 * (625 / 3600) * sleep_time)
             + (factory_T4 * (2083 / 3600) * sleep_time)
@@ -198,11 +198,16 @@ async def get_coin(id: int) -> int:
 
         return int(coin)
 
-@app.post("/api/v1/get_coin")
+class get_coin_out(SQLModel):
+    message: str
+    coin: int
+
+
+@app.post("/api/v1/get_coin", response_model=get_coin_out)
 async def get_coin_endpoint(user: UserO = Depends(get_user)):
 
-    user = await get_coin(user.id)
-    return {"message": "Coins updated successfully", "coin": user}
+    coin = await get_coin(user.id)
+    return get_coin_out(message="Coins updated successfully", coin=coin)
 
 async def buyFactory(id: int, count: int, factory_type: FactoryType) -> int:
     async with AsyncSession(engine) as db:
@@ -213,7 +218,7 @@ async def buyFactory(id: int, count: int, factory_type: FactoryType) -> int:
             raise HTTPException(status_code=404, detail="User not found")
 
         factory_costs = {
-            FactoryType.T1: 10,
+            FactoryType.T1: 30,
             FactoryType.T2: 500,
             FactoryType.T3: 10000,
             FactoryType.T4: 100000,
@@ -240,10 +245,11 @@ async def buyFactory(id: int, count: int, factory_type: FactoryType) -> int:
             raise HTTPException(status_code=500, detail="Error occurred while buying factories")
         return coin
 
-@app.post("/api/v1/buy_factory")
+@app.post("/api/v1/buy_factory", response_model=buyfactoryO)
 async def buy_factory(factory: buyfactoryI, user: UserO = Depends(get_user)):
     await get_coin(user.id)
     coin = await buyFactory(user.id, factory.count, factory.factory_type)
     return buyfactoryO(message="Factory bought successfully" ,coin=coin)
+
 
 
