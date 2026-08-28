@@ -11,12 +11,11 @@ from typing import Optional
 from enum import Enum
 from dotenv import load_dotenv
 
+T1_factory = 12
+T2_factory = 125
+T3_factory = 625
+T4_factory = 2083
 
-load_dotenv()
-
-class get_coin_out(SQLModel):
-    message: str
-    coin: int
 
 
 class TType(str, Enum):
@@ -24,6 +23,38 @@ class TType(str, Enum):
     T2 = "T2"
     T3 = "T3"
     T4 = "T4"
+
+factory_costs = {
+        TType.T1: 30,
+        TType.T2: 500,
+        TType.T3: 10000,
+        TType.T4: 100000,
+    }
+missile_costs = {
+        TType.T1: 60,
+        TType.T2: 625,
+        TType.T3: 625*6,
+        TType.T4: 2083*6,
+    }
+factory_health = {
+        TType.T1: 90,
+        TType.T2: 1500,
+        TType.T3: 15000,
+        TType.T4: 150000,
+    }
+
+missile_time = {
+        TType.T1: 2,
+        TType.T2: 15,
+        TType.T3: 60,
+        TType.T4: 120,
+    }
+load_dotenv()
+
+class get_coin_out(SQLModel):
+    message: str
+    coin: int
+
 class buyfactoryI(SQLModel):
     factory_type: TType
     count: int
@@ -192,10 +223,10 @@ async def get_coin(id: int) -> int:
 
         sleep_time = (time_now - last_get_coin).total_seconds()
         add_coin = int(
-            (factory_T1 * (12 / 3600) * sleep_time)
-            + (factory_T2 * (125 / 3600) * sleep_time)
-            + (factory_T3 * (625 / 3600) * sleep_time)
-            + (factory_T4 * (2083 / 3600) * sleep_time)
+            (factory_T1 * (T1_factory / 3600) * sleep_time)
+            + (factory_T2 * (T2_factory / 3600) * sleep_time)
+            + (factory_T3 * (T3_factory / 3600) * sleep_time)
+            + (factory_T4 * (T4_factory / 3600) * sleep_time)
         )
         
         r.coin += add_coin
@@ -224,12 +255,7 @@ async def buyFactory(id: int, count: int, factory_type: TType) -> int:
         if not r:
             raise HTTPException(status_code=404, detail="User not found")
 
-        factory_costs = {
-            TType.T1: 30,
-            TType.T2: 500,
-            TType.T3: 10000,
-            TType.T4: 100000,
-        }
+
         factory_map = {
             TType.T1: "factory_T1",
             TType.T2: "factory_T2",
@@ -304,18 +330,8 @@ async def buyMissile(id: int, count: int, missile_type: TType) -> int:
         if not r:
             raise HTTPException(status_code=404, detail="User not found")
 
-        missile_costs = {
-            TType.T1: 60,
-            TType.T2: 625,
-            TType.T3: 625*6,
-            TType.T4: 2083*6,
-        }
-        missile_time = {
-            TType.T1: 2,
-            TType.T2: 15,
-            TType.T3: 60,
-            TType.T4: 120,
-        }
+
+
         total_cost = missile_costs[missile_type] * count
         if r.coin < total_cost:
             raise HTTPException(status_code=400, detail="Not enough coins to buy factories")
@@ -336,5 +352,6 @@ async def buyMissile(id: int, count: int, missile_type: TType) -> int:
             raise HTTPException(status_code=500, detail="Error occurred while buying factories")
         return coin
 
-async def attack(id: Int, Tid: int):
+async def attack(id: int, Tid: int, model_missiles: TType, model_factory: TType):
+
     pass
