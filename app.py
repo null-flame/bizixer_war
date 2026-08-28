@@ -4,24 +4,28 @@ import os
 import jwt
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, Cookie
 from pydantic import ConfigDict
-from sqlmodel import Field, SQLModel, select
+from sqlmodel import Field, SQLModel, select, Relationship
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
-
+from typing import Optional
 from enum import Enum
 from dotenv import load_dotenv
 
 
 load_dotenv()
 
+class get_coin_out(SQLModel):
+    message: str
+    coin: int
 
-class FactoryType(str, Enum):
+
+class TType(str, Enum):
     T1 = "T1"
     T2 = "T2"
     T3 = "T3"
     T4 = "T4"
 class buyfactoryI(SQLModel):
-    factory_type: FactoryType
+    factory_type: TType
     count: int
 class buyfactoryO(SQLModel):
     message: str
@@ -55,7 +59,15 @@ class User(SQLModel, table=True):
     missile_T3: int = Field(default=0)
     missile_T4: int = Field(default=0)
 
-    
+
+class Queue(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    count: int | None
+    model: TType
+    create_time = datetime = Field()
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+
+    user: Optional[User] = Relationship()  
 
 class UserI(SQLModel):
     model_config = ConfigDict(use_enum_values=True, arbitrary_types_allowed=True)
@@ -198,18 +210,13 @@ async def get_coin(id: int) -> int:
 
         return int(coin)
 
-class get_coin_out(SQLModel):
-    message: str
-    coin: int
-
-
 @app.post("/api/v1/get_coin", response_model=get_coin_out)
 async def get_coin_endpoint(user: UserO = Depends(get_user)):
 
     coin = await get_coin(user.id)
     return get_coin_out(message="Coins updated successfully", coin=coin)
 
-async def buyFactory(id: int, count: int, factory_type: FactoryType) -> int:
+async def buyFactory(id: int, count: int, factory_type: TType) -> int:
     async with AsyncSession(engine) as db:
         q = select(User).where(User.id == id)
         r = await db.exec(q)
@@ -218,16 +225,16 @@ async def buyFactory(id: int, count: int, factory_type: FactoryType) -> int:
             raise HTTPException(status_code=404, detail="User not found")
 
         factory_costs = {
-            FactoryType.T1: 30,
-            FactoryType.T2: 500,
-            FactoryType.T3: 10000,
-            FactoryType.T4: 100000,
+            TType.T1: 30,
+            TType.T2: 500,
+            TType.T3: 10000,
+            TType.T4: 100000,
         }
         factory_map = {
-            FactoryType.T1: "factory_T1",
-            FactoryType.T2: "factory_T2",
-            FactoryType.T3: "factory_T3",
-            FactoryType.T4: "factory_T4",
+            TType.T1: "factory_T1",
+            TType.T2: "factory_T2",
+            TType.T3: "factory_T3",
+            TType.T4: "factory_T4",
         }
         total_cost = factory_costs[factory_type] * count
         if r.coin < total_cost:
