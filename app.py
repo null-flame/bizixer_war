@@ -3,6 +3,7 @@ from datetime import timedelta, datetime, timezone
 import os
 import jwt
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, Cookie
+from fastapi.security import APIKeyCookie
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel, select, Relationship
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -131,7 +132,7 @@ async def on_startup(app: FastAPI):
 
 app = FastAPI(lifespan=on_startup)
 
-
+cookie_scheme = APIKeyCookie(name="token")
 
 ALG = "HS256"
 
@@ -153,7 +154,7 @@ async def createToken(user: UserO):
 
 
 
-async def get_user(token: str | None = Cookie(default=None)):
+async def get_user(token: str = Depends(cookie_scheme)):
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
@@ -280,6 +281,8 @@ async def buyFactory(id: int, count: int, factory_type: TType) -> int:
 
 @app.post("/api/v1/buy_factory", response_model=buyfactoryO)
 async def buy_factory(factory: buyfactoryI, user: UserO = Depends(get_user)):
+    if factory.count <= 0:
+        raise HTTPException(status_code=400, detail="میزان خرید نمیتواند صفر یا کمتر از صفر باشد!")
     await get_coin(user.id)
     coin = await buyFactory(user.id, factory.count, factory.factory_type)
     return buyfactoryO(message="Factory bought successfully" ,coin=coin)
@@ -301,13 +304,14 @@ async def get_missiles(id: int):
                 i.create_time = i.create_time.replace(tzinfo=timezone.utc)
             if i.create_time < now:
                 if i.model == TType.T1:
-                    r.factory_T1 += i.count
+                    r.missile_T1 += i.count
                 if i.model == TType.T2:
-                    r.factory_T2 += i.count
+                    r.missile_T2 += i.count
                 if i.model == TType.T3:
-                    r.factory_T3 += i.count
+                    r.missile_T3 += i.count
                 if i.model == TType.T4:
-                    r.factory_T4 += i.count
+                    r.missile_T4 += i.count
+
                 db.delete(i)
 
         await db.commit()
@@ -352,6 +356,45 @@ async def buyMissile(id: int, count: int, missile_type: TType) -> int:
             raise HTTPException(status_code=500, detail="Error occurred while buying factories")
         return coin
 
-async def attack(id: int, Tid: int, model_missiles: TType, model_factory: TType):
+async def attack(id: int, Tid: int, model_missiles: TType, model_factory: TType, count: int):
+    async with AsyncSession(engine) as db:
+        q = select(User).where(User.id == id)
+        r = await db.exec(q)
+        r: User = r.first()
+        q = select(User).where(User.id == Tid)
+        res = await db.exec(q)
+        res: User = res.first()
+        if res is None:
+            raise HTTPException(status_code=404, detail="کاربر وجود ندارد")
+        if r is None:
+            raise HTTPException(status_code=404, detail="کاربر مهاجم وجود ندارد")
+        if r.front == res.front:
+            raise HTTPException(status_code=400, detail="شما نمیتوانی هم رزم خود را بزنید!")
 
-    pass
+        field_name_missle = f"missile_{model_missiles.value}"
+        field_name_factory = f"factory_{model_factory.value}"
+
+        missiles_count = getattr(r, field_name_missle)
+        factory_count = getattr(res, field_name_factory)
+
+        if missiles_count < count:
+            raise HTTPException(status_code=400, detail="شما موشک کافی ندارید!")
+        
+
+
+
+        damage = missile_costs[model_missiles] * count
+        
+        hp = factory_health[model_factory]
+
+        destroyed = int(damage/hp)
+
+        setattr(r, field_name_missle, missiles_count - count)
+        setattr(res, field_name_factory, max(0, factory_count - destroyed))
+
+        await db.commit()
+
+
+        
+
+
