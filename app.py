@@ -64,7 +64,7 @@ class Queue(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     count: int | None
     model: TType
-    create_time = datetime = Field()
+    create_time: datetime
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")
 
     user: Optional[User] = Relationship()  
@@ -258,5 +258,83 @@ async def buy_factory(factory: buyfactoryI, user: UserO = Depends(get_user)):
     coin = await buyFactory(user.id, factory.count, factory.factory_type)
     return buyfactoryO(message="Factory bought successfully" ,coin=coin)
 
+async def get_missiles(id: int):
+    async with AsyncSession(engine) as db:
+        q = select(User).where(User.id == id)
+        r = await db.exec(q)
+        r: User = r.first()
+        if not r:
+            raise HTTPException(status_code=404, detail="User not found")
+        q = select(Queue).where(Queue.user_id == r.id)
+        res = await db.exec(q)
+        res: list[Queue] = res.all()
+        now = datetime.now(timezone.utc)
+        
+        for i in res:
+            if i.create_time.tzinfo is None:
+                i.create_time = i.create_time.replace(tzinfo=timezone.utc)
+            if i.create_time < now:
+                if i.model == TType.T1:
+                    r.factory_T1 += i.count
+                if i.model == TType.T2:
+                    r.factory_T2 += i.count
+                if i.model == TType.T3:
+                    r.factory_T3 += i.count
+                if i.model == TType.T4:
+                    r.factory_T4 += i.count
+                db.delete(i)
 
+        await db.commit()
 
+async def get_lasted_create(id: int) -> datetime:
+    async with AsyncSession(engine) as db:
+        q = select(Queue).where(Queue.user_id == id).order_by(Queue.id.desc())
+        r = await db.exec(q)
+        r: Queue = r.first()
+        if r is None:
+            return datetime.now(timezone.utc)
+        return r.create_time
+
+async def buyMissile(id: int, count: int, missile_type: TType) -> int:
+    await get_missiles(id)
+    async with AsyncSession(engine) as db:
+        q = select(User).where(User.id == id)
+        r = await db.exec(q)
+        r = r.first()
+        if not r:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        missile_costs = {
+            TType.T1: 60,
+            TType.T2: 625,
+            TType.T3: 625*6,
+            TType.T4: 2083*6,
+        }
+        missile_time = {
+            TType.T1: 2,
+            TType.T2: 15,
+            TType.T3: 60,
+            TType.T4: 120,
+        }
+        total_cost = missile_costs[missile_type] * count
+        if r.coin < total_cost:
+            raise HTTPException(status_code=400, detail="Not enough coins to buy factories")
+        
+        r.coin -= total_cost
+        create_time = await get_lasted_create(id)
+        create_time = create_time + timedelta(minutes=missile_time[missile_type])
+        queue = Queue(count=count, model=missile_type, create_time=create_time, user=r)
+        
+
+        coin = r.coin
+        db.add(queue)
+        try:
+            await db.commit()
+            await db.refresh(r)
+        except Exception:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail="Error occurred while buying factories")
+        return coin
+
+async def attack(id: Int, Tid: int):
+    pass
