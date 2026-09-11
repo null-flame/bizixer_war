@@ -15,4 +15,4 @@ class attack_In(SQLModel):
     factory_type: TType
     count: int
 class attack_out(SQLModel):
-    meesage: str
+    message: str
