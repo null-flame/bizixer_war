@@ -13,10 +13,10 @@ factory_costs = {
     TType.T4: 100000,
 }
 missile_costs = {
-    TType.T1: 60,
-    TType.T2: 625,
-    TType.T3: 625*6,
-    TType.T4: 2083*6,
+    TType.T1: 12*4,
+    TType.T2: 600,
+    TType.T3: 625*4,
+    TType.T4: 2083*5,
 }
 factory_health = {
     TType.T1: 90,
@@ -26,10 +26,10 @@ factory_health = {
 }
 
 missile_time = {
-    TType.T1: 2,
-    TType.T2: 15,
-    TType.T3: 60,
-    TType.T4: 120,
+    TType.T1: 5,
+    TType.T2: 30,
+    TType.T3: 120,
+    TType.T4: 240,
 }
 
 load_dotenv()

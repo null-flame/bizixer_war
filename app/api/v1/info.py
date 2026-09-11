@@ -7,16 +7,16 @@ from app.api.deps import *
 from app.services.info import *
 from app.schemas.info import *
 
-router = APIRouter(tags=["factory"])
+router = APIRouter(tags=["info"])
 
 @router.get("/info", response_model=UserIO)
 async def info(user: UserO = Depends(get_user), db: AsyncSession = Depends(get_session)):
 
-    user = get_info(user.id, db)
+    user = await get_info(user.id, db)
     return user
 
-@router.get("/leadears", response_model=UsersList)
-async def info(db: AsyncSession = Depends(get_session)):
+@router.get("/leaderboard", response_model=UsersList)
+async def leaderboard(db: AsyncSession = Depends(get_session)):
 
-    users = get_leadear(db)
+    users = await get_leaderboard(db)
     return users

@@ -14,14 +14,14 @@ async def get_info(id: int, db: AsyncSession):
     user = r
     q = select(Queue).where(Queue.user_id == id)
     r = await db.exec(q)
-    r: User = r.all()
+    r: list[Queue] = r.all()
     user_data = user.model_dump()
     user_data["queue"] = r
 
     return UserIO.model_validate(user_data)
 
 
-async def get_leadear(db: AsyncSession):
+async def get_leaderboard(db: AsyncSession):
     q = select(User)
     r = await db.exec(q)
     r: User = r.all()

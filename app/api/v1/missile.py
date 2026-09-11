@@ -6,6 +6,7 @@ from app.services.coin_service import get_coin
 from app.services.missile_service import buyMissile, attack
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.schemas.missile import *
+from app.services.missile_service import get_missiles
 router = APIRouter(tags=["missile"])
 
 
@@ -40,6 +41,6 @@ async def attack_endpoint(
     return attack_out(message="Attack successful")
 
 @router.post("/get_missiles", response_model=attack_out)
-async def get__missiles_api(user: UserO = Depends(get_user), db: AsyncSession = Depends(get_session)):
-    await get_session(user.id, db)
-    return attack_out(meesage="موشک های شما با موفقیت جمع اوری شدند")
+async def get_missiles_api(user: UserO = Depends(get_user), db: AsyncSession = Depends(get_session)):
+    await get_missiles(user.id, db)
+    return attack_out(message="موشک های شما با موفقیت جمع اوری شدند")
