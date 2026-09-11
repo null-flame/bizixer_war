@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سامانه فرماندهی نبرد و کارخانجات - FastAPI Game UI</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            cyan: '#00f3ff',
+                            red: '#ff2a6d',
+                            green: '#05ffa1',
+                            dark: '#0a0e17',
+                            card: '#121824',
+                            border: '#1f293d'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Vazirmatn', 'Tahoma', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #070a10;
+            color: #e2e8f0;
+        }
+        .glow-cyan { box-shadow: 0 0 15px rgba(0, 243, 255, 0.25); }
+        .glow-red { box-shadow: 0 0 15px rgba(255, 42, 109, 0.25); }
+        .glow-green { box-shadow: 0 0 15px rgba(5, 255, 161, 0.25); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0c1017; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #00f3ff; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
+
+    <!-- Header -->
+    <header class="border-b border-brand-border bg-brand-card/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-cyan-500/20">
+                    <i class="fa-solid font-rocket">🚀</i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white tracking-wide">مرکز فرماندهی نبرد موشکی</h1>
+                    <p class="text-xs text-cyan-400 font-mono">FastAPI Operations v0.1.0</p>
+                </div>
+            </div>
+
+            <!-- User Info Bar (When Logged In) -->
+            <div id="userHeaderBar" class="hidden flex items-center gap-4 bg-brand-dark/80 px-4 py-2 rounded-xl border border-brand-border">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-400">بازیکن:</span>
+                    <span id="navUsername" class="font-bold text-cyan-300">---</span>
+                </div>
+                <div class="h-4 w-px bg-gray-700"></div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-400">جبهه:</span>
+                    <span id="navFront" class="px-2 py-0.5 text-xs rounded font-bold uppercase">---</span>
+                </div>
+                <div class="h-4 w-px bg-gray-700"></div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-coins text-amber-400"></i>
+                    <span id="navCoin" class="font-mono font-bold text-amber-400">0</span>
+                </div>
+                <button onclick="fetchUserInfo()" title="بروزرسانی اطلاعات" class="p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-cyan-400 transition">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+                <button onclick="logout()" title="خروج" class="p-1.5 hover:bg-red-950/50 rounded-lg text-gray-400 hover:text-red-400 transition">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 w-full flex-grow">
+
+        <!-- AUTH MODAL / VIEW -->
+        <div id="authSection" class="max-w-md mx-auto my-10 bg-brand-card border border-brand-border rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <!-- Auth Tabs -->
+            <div class="flex border-b border-brand-border mb-6">
+                <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 py-3 font-semibold text-center border-b-2 border-cyan-400 text-cyan-400">ورود به حساب</button>
+                <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200">ثبت نام کاربر جدید</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">نام کاربری</label>
+                    <input type="text" id="loginUsername" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-cyan-400 font-mono transition" placeholder="مثال: commander">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">رمز عبور</label>
+                    <input type="password" id="loginPassword" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-cyan-400 font-mono transition" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-bold py-3 rounded-xl transition shadow-lg shadow-cyan-500/20 active:scale-[0.98]">
+                    ورود به سیستم <i class="fa-solid fa-right-to-bracket mr-2"></i>
+                </button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">نام کاربری جدید</label>
+                    <input type="text" id="regUsername" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-cyan-400 font-mono transition" placeholder="مثال: commander">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">رمز عبور</label>
+                    <input type="password" id="regPassword" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-cyan-400 font-mono transition" placeholder="••••••••">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">انتخاب جبهه / گروه (Front)</label>
+                    <select id="regFront" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-cyan-400 transition">
+                        <option value="mahdi">جبهه مهدی (Mahdi)</option>
+                        <option value="fere">جبهه فره (Fere)</option>
+                        <option value="gooji">جبهه گوجی (Gooji)</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-bold py-3 rounded-xl transition shadow-lg shadow-emerald-500/20 active:scale-[0.98]">
+                    ثبت نام و ایجاد حساب <i class="fa-solid fa-user-plus mr-2"></i>
+                </button>
+            </form>
+        </div>
+
+        <!-- GAME DASHBOARD (HIDDEN UNTIL LOGIN) -->
+        <div id="gameDashboard" class="hidden space-y-6">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Get Coin Card -->
+                <div class="bg-brand-card border border-brand-border rounded-2xl p-5 flex items-center justify-between relative overflow-hidden group">
+                    <div class="absolute -left-6 -bottom-6 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition"></div>
+                    <div>
+                        <span class="text-xs text-gray-400 block mb-1">تأمین بودجه</span>
+                        <h3 class="text-lg font-bold text-white">دریافت سکه رایگان</h3>
+                        <p class="text-xs text-gray-500 mt-1">افزایش دارایی نقدی سازمان</p>
+                    </div>
+                    <button onclick="requestGetCoin()" class="bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500 hover:text-black text-amber-400 font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2">
+                        <i class="fa-solid fa-hand-holding-dollar"></i> دریافت
+                    </button>
+                </div>
+
+                <!-- Get Missiles Card -->
+                <div class="bg-brand-card border border-brand-border rounded-2xl p-5 flex items-center justify-between relative overflow-hidden group">
+                    <div class="absolute -left-6 -bottom-6 w-24 h-24 bg-red-500/10 rounded-full blur-xl group-hover:bg-red-500/20 transition"></div>
+                    <div>
+                        <span class="text-xs text-gray-400 block mb-1">پشتیبانی تسلیحاتی</span>
+                        <h3 class="text-lg font-bold text-white">دریافت موشک‌ها</h3>
+                        <p class="text-xs text-gray-500 mt-1">بررسی و دریافت موشک‌های آماده</p>
+                    </div>
+                    <button onclick="requestGetMissiles()" class="bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:text-black text-red-400 font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2">
+                        <i class="fa-solid fa-box-open"></i> دریافت
+                    </button>
+                </div>
+
+                <!-- Quick Stats / Time -->
+                <div class="bg-brand-card border border-brand-border rounded-2xl p-5 flex flex-col justify-between">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-400">آخرین دریافت سکه:</span>
+                        <span id="lastGetCoinTime" class="text-xs font-mono text-cyan-300">---</span>
+                    </div>
+                    <div class="flex justify-between items-center mt-3">
+                        <span class="text-xs text-gray-400">آی‌دی کاربر:</span>
+                        <span id="displayUserId" class="text-xs font-mono text-gray-200">#0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex gap-2 border-b border-brand-border pb-2 overflow-x-auto custom-scrollbar">
+                <button onclick="showSection('factories')" id="navTabFactories" class="tab-btn px-5 py-2.5 rounded-xl font-bold text-sm bg-cyan-500/10 border border-cyan-500/40 text-cyan-400 flex items-center gap-2">
+                    <i class="fa-solid fa-industry"></i> کارخانه‌ها (Factories)
+                </button>
+                <button onclick="showSection('missiles')" id="navTabMissiles" class="tab-btn px-5 py-2.5 rounded-xl font-bold text-sm bg-brand-card border border-brand-border text-gray-400 hover:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-rocket"></i> زاغه و خرید موشک (Missiles)
+                </button>
+                <button onclick="showSection('attack')" id="navTabAttack" class="tab-btn px-5 py-2.5 rounded-xl font-bold text-sm bg-brand-card border border-brand-border text-gray-400 hover:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-crosshairs"></i> مرکز حمله (Attack)
+                </button>
+                <button onclick="showSection('leaderboard')" id="navTabLeaderboard" class="tab-btn px-5 py-2.5 rounded-xl font-bold text-sm bg-brand-card border border-brand-border text-gray-400 hover:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-trophy"></i> جدول رده‌بندی (Leaderboard)
+                </button>
+            </div>
+
+            <!-- SECTION 1: FACTORIES -->
+            <div id="sectionFactories" class="game-section space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-industry text-cyan-400"></i> ساخت و ارتقاء کارخانه‌ها
+                    </h2>
+                    <span class="text-xs text-gray-400">انواع کارخانه: T1, T2, T3, T4</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- T1 Factory -->
+                    <div class="bg-brand-card border border-brand-border rounded-2xl p-5 space-y-4 flex flex-col justify-between hover:border-cyan-500/30 transition">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="px-2 py-0.5 text-xs font-bold rounded bg-cyan-950 text-cyan-400 border border-cyan-800">Tier 1</span>
+                                <span class="text-xs text-gray-400">موجودی: <strong id="cntFactoryT1" class="text-white font-mono text-sm">0</strong></span>
+                            </div>
+                            <h3 class="font-bold text-white">کارخانه اولیه T1</h3>
+                            <p class="text-xs text-gray-400 mt-1">تولیدات پایه ساختمانی و زیربنایی</p>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="buyFacCountT1" min="1" value="1" class="w-20 bg-brand-dark border border-brand-border rounded-lg px-2 py-1 text-center font-mono text-sm text-white">
+                                <button onclick="buyFactory('T1', 'buyFacCountT1')" class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-1.5 rounded-lg text-sm transition">
+                                    خرید کارخانه
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- T2 Factory -->
+                    <div class="bg-brand-card border border-brand-border rounded-2xl p-5 space-y-4 flex flex-col justify-between hover:border-blue-500/30 transition">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="px-2 py-0.5 text-xs font-bold rounded bg-blue-950 text-blue-400 border border-blue-800">Tier 2</span>
+                                <span class="text-xs text-gray-400">موجودی: <strong id="cntFactoryT2" class="text-white font-mono text-sm">0</strong></span>
+                            </div>
+                            <h3 class="font-bold text-white">کارخانه پیشرفته T2</h3>
+                            <p class="text-xs text-gray-400 mt-1">خطوط مونتاژ نیمه‌مکانیره</p>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="buyFacCountT2" min="1" value="1" class="w-20 bg-brand-dark border border-brand-border rounded-lg px-2 py-1 text-center font-mono text-sm text-white">
+                                <button onclick="buyFactory('T2', 'buyFacCountT2')" class="flex-1 bg-blue-500 hover:bg-blue-400 text-black font-bold py-1.5 rounded-lg text-sm transition">
+                                    خرید کارخانه
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- T3 Factory -->
+                    <div class="bg-brand-card border border-brand-border rounded-2xl p-5 space-y-4 flex flex-col justify-between hover:border-purple-500/30 transition">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="px-2 py-0.5 text-xs font-bold rounded bg-purple-950 text-purple-400 border border-purple-800">Tier 3</span>
+                                <span class="text-xs text-gray-400">موجودی: <strong id="cntFactoryT3" class="text-white font-mono text-sm">0</strong></span>
+                            </div>
+                            <h3 class="font-bold text-white">مجتمع صنعتی T3</h3>
+                            <p class="text-xs text-gray-400 mt-1">تولید سیستم‌های هدایت پایداری</p>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="buyFacCountT3" min="1" value="1" class="w-20 bg-brand-dark border border-brand-border rounded-lg px-2 py-1 text-center font-mono text-sm text-white">
+                                <button onclick="buyFactory('T3', 'buyFacCountT3')" class="flex-1 bg-purple-500 hover:bg-purple-400 text-white font-bold py-1.5 rounded-lg text-sm transition">
+                                    خرید کارخانه
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- T4 Factory -->
+                    <div class="bg-brand-card border border-brand-border rounded-2xl p-5 space-y-4 flex flex-col justify-between hover:border-amber-500/30 transition">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="px-2 py-0.5 text-xs font-bold rounded bg-amber-950 text-amber-400 border border-amber-800">Tier 4</span>
+                                <span class="text-xs text-gray-400">موجودی: <strong id="cntFactoryT4" class="text-white font-mono text-sm">0</strong></span>
+                            </div>
+                            <h3 class="font-bold text-white">ابر کارخانه T4</h3>
+                            <p class="text-xs text-gray-400 mt-1">صنایع سنگین و سوپر سازه‌های رزمی</p>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="buyFacCountT4" min="1" value="1" class="w-20 bg-brand-dark border border-brand-border rounded-lg px-2 py-1 text-center font-mono text-sm text-white">
+                                <button onclick="buyFactory('T4', 'buyFacCountT4')" class="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-bold py-1.5 rounded-lg text-sm transition">
+                                    خرید کارخانه
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: MISSILES & QUEUE -->
+            <div id="sectionMissiles" class="game-section space-y-6 hidden">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-rocket text-red-400"></i> تسلیحات و صف ساخت موشک
+                    </h2>
+                    <span class="text-xs text-gray-400">انواع موشک: T1, T2, T3, T4</span>
+                </div>
+
+                <!-- Buy Missiles Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- T1 Missile -->
+                    <div class="bg-brand-card border border-brand-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="px-2 py-0.5 text-xs font-bold rounded bg-red-950 text-red-400 border border-red-800">M-T1</span>
+                                <span class="text-xs text-gray-400">موجود: <strong id="cntMissileT1" class="text-white font-mono text-sm">0</strong></span>
+                            </div>
+                            <h3 class="font-bold text-white">موشک تاکتیکی T1</h3>
+                            <p class="text-xs text-gray-400 mt-1">برد کوتاه - آسیب سبک</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="buyMisCountT1" min="1" value="1" class="w-20 bg-brand-dark border border-brand-border rounded-lg px-2 py-1 text-center font-mono text-sm text-white">
+                            <button onclick="buyMissile('T1', 'buyMisCountT1')" class="flex-1 bg-red-500 hover:bg-red-400 text-black font-bold py-1.5 rounded-lg text-sm transition">
+                                سفارش موشک
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- T2 Missile -->
+                    <div class="bg-brand-card border border-brand-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="px-2 py-0.5 text-xs font-bold rounded bg-orange-950 text-orange-400 border border-orange-800">M-T2</span>
+                                <span class="text-xs text-gray-400">موجود: <strong id="cntMissileT2" class="text-white font-mono text-sm">0</strong></span>
+                            </div>
+                            <h3 class="font-bold text-white">موشک کروز T2</h3>
+                            <p class="text-xs text-gray-400 mt-1">برد متوسط - دقت بالا</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="buyMisCountT2" min="1" value="1" class="w-20 bg-brand-dark border border-brand-border rounded-lg px-2 py-1 text-center font-mono text-sm text-white">
+                            <button onclick="buyMissile('T2', 'buyMisCountT2')" class="flex-1 bg-orange-500 hover:bg-orange-400 text-black font-bold py-1.5 rounded-lg text-sm transition">
+                                سفارش موشک
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- T3 Missile -->
+                    <div class="bg-brand-card border border-brand-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="px-2 py-0.5 text-xs font-bold rounded bg-amber-950 text-amber-400 border border-amber-800">M-T3</span>
+                                <span class="text-xs text-gray-400">موجود: <strong id="cntMissileT3" class="text-white font-mono text-sm">0</strong></span>
+                            </div>
+                            <h3 class="font-bold text-white">موشک بالستیک T3</h3>
+                            <p class="text-xs text-gray-400 mt-1">برد بلند - تخریب سنگین</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="buyMisCountT3" min="1" value="1" class="w-20 bg-brand-dark border border-brand-border rounded-lg px-2 py-1 text-center font-mono text-sm text-white">
+                            <button onclick="buyMissile('T3', 'buyMisCountT3')" class="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-bold py-1.5 rounded-lg text-sm transition">
+                                سفارش موشک
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- T4 Missile -->
+                    <div class="bg-brand-card border border-brand-border rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="px-2 py-0.5 text-xs font-bold rounded bg-emerald-950 text-emerald-400 border border-emerald-800">M-T4</span>
+                                <span class="text-xs text-gray-400">موجود: <strong id="cntMissileT4" class="text-white font-mono text-sm">0</strong></span>
+                            </div>
+                            <h3 class="font-bold text-white">موشک فراصوت T4</h3>
+                            <p class="text-xs text-gray-400 mt-1">قدرت انهدام استراتژیک</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="buyMisCountT4" min="1" value="1" class="w-20 bg-brand-dark border border-brand-border rounded-lg px-2 py-1 text-center font-mono text-sm text-white">
+                            <button onclick="buyMissile('T4', 'buyMisCountT4')" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-1.5 rounded-lg text-sm transition">
+                                سفارش موشک
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Production Queue -->
+                <div class="bg-brand-card border border-brand-border rounded-2xl p-5 space-y-4">
+                    <h3 class="font-bold text-white text-md flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i> صف در حال ساخت (Queue)
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-sm text-gray-300">
+                            <thead class="bg-brand-dark text-xs uppercase text-gray-400 border-b border-brand-border">
+                                <tr>
+                                    <th class="p-3">شناسه صف (#)</th>
+                                    <th class="p-3">مدل موشک</th>
+                                    <th class="p-3">تعداد</th>
+                                    <th class="p-3">زمان تحویل (Ready At)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="queueTableBody" class="divide-y divide-brand-border">
+                                <tr>
+                                    <td colspan="4" class="p-4 text-center text-gray-500">هیچ سفارشی در صف ساخت نیست.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: ATTACK CENTER -->
+            <div id="sectionAttack" class="game-section space-y-6 hidden">
+                <div class="bg-gradient-to-r from-red-950/40 via-brand-card to-brand-card border border-red-900/50 rounded-2xl p-6 space-y-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500 text-xl">
+                            <i class="fa-solid fa-crosshairs"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-white">اتاق عملیات و شلیک موشک</h2>
+                            <p class="text-xs text-gray-400">تنظیم مختصات و حمله به زیرساخت‌های سایر فرماندهان</p>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handleAttack(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-2">شناسه هدف (Target User ID)</label>
+                            <input type="number" id="attackTid" required min="1" placeholder="مثال: 5" class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-white font-mono focus:border-red-500 focus:outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-2">نوع موشک مصرفی</label>
+                            <select id="attackMissileType" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-white focus:border-red-500 focus:outline-none">
+                                <option value="T1">موشک T1</option>
+                                <option value="T2">موشک T2</option>
+                                <option value="T3">موشک T3</option>
+                                <option value="T4">موشک T4</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-2">نوع کارخانه هدف</label>
+                            <select id="attackFactoryType" required class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-white focus:border-red-500 focus:outline-none">
+                                <option value="T1">کارخانه T1</option>
+                                <option value="T2">کارخانه T2</option>
+                                <option value="T3">کارخانه T3</option>
+                                <option value="T4">کارخانه T4</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-2">تعداد موشک پرتابی</label>
+                            <input type="number" id="attackCount" required min="1" value="1" class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-2.5 text-white font-mono focus:border-red-500 focus:outline-none">
+                        </div>
+
+                        <div class="md:col-span-2 lg:col-span-4 mt-2">
+                            <button type="submit" class="w-full bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-2 active:scale-[0.99]">
+                                <i class="fa-solid fa-fire text-lg"></i> اجرای عملیات موشکی
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- SECTION 4: LEADERBOARD -->
+            <div id="sectionLeaderboard" class="game-section space-y-4 hidden">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-trophy text-amber-400"></i> جدول رده‌بندی فرماندهان
+                    </h2>
+                    <button onclick="fetchLeaderboard()" class="bg-brand-card hover:bg-gray-800 border border-brand-border px-3 py-1.5 rounded-lg text-xs text-gray-300 transition">
+                        <i class="fa-solid fa-arrows-rotate"></i> بروزرسانی جدول
+                    </button>
+                </div>
+
+                <div class="bg-brand-card border border-brand-border rounded-2xl overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-sm text-gray-300">
+                            <thead class="bg-brand-dark text-xs uppercase text-gray-400 border-b border-brand-border">
+                                <tr>
+                                    <th class="p-3 text-center">ID</th>
+                                    <th class="p-3">فرمانده</th>
+                                    <th class="p-3">جبهه</th>
+                                    <th class="p-3 text-amber-400">سکه</th>
+                                    <th class="p-3">کارخانه‌ها (T1-T4)</th>
+                                    <th class="p-3">موشک‌ها (T1-T4)</th>
+                                    <th class="p-3 text-center">عملیات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboardTableBody" class="divide-y divide-brand-border">
+                                <tr>
+                                    <td colspan="7" class="p-4 text-center text-gray-500">در حال دریافت اطلاعات رده‌بندی...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOGS & RESPONSE TERMINAL -->
+            <div class="bg-brand-card border border-brand-border rounded-2xl p-4 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-gray-400 font-mono flex items-center gap-2">
+                        <i class="fa-solid fa-terminal text-cyan-400"></i> گزارش عملیات و پاسخ سرور
+                    </span>
+                    <button onclick="clearLogs()" class="text-xs text-gray-500 hover:text-gray-300 transition">پاکسازی</button>
+                </div>
+                <div id="consoleLog" class="bg-brand-dark rounded-xl p-3 h-32 overflow-y-auto font-mono text-xs space-y-1 text-gray-300 custom-scrollbar border border-black/50">
+                    <div class="text-gray-500">[سامانه] سیستم با موفقیت بارگذاری شد. منتظر احراز هویت...</div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="border-t border-brand-border py-4 text-center text-xs text-gray-500 bg-brand-dark">
+        FastAPI Interactive Operations Interface &bull; Single-File Frontend
+    </footer>
+
+    <script>
+        // Store logged in user state locally
+        let currentUser = null;
+
+        // Base API Helper using credentials: 'include' for Cookie auth
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'include' // Mandatory for cookie authorization
+            };
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(endpoint, options);
+                const responseData = await response.json();
+
+                if (!response.ok) {
+                    let errMsg = 'خطا در برقراری ارتباط با سرور';
+                    if (responseData.detail) {
+                        if (Array.isArray(responseData.detail)) {
+                            errMsg = responseData.detail.map(d => `${d.loc ? d.loc.join('.') : ''}: ${d.msg}`).join(' | ');
+                        } else {
+                            errMsg = responseData.detail;
+                        }
+                    }
+                    logMessage(`[خطا ${response.status}] ${errMsg}`, 'error');
+                    return { success: false, status: response.status, data: responseData };
+                }
+
+                return { success: true, status: response.status, data: responseData };
+            } catch (err) {
+                logMessage(`[خطای شبکه] عدم توانایی در اتصال به سرور: ${err.message}`, 'error');
+                return { success: false, error: err };
+            }
+        }
+
+        // Logger Function
+        function logMessage(msg, type = 'info') {
+            const consoleDiv = document.getElementById('consoleLog');
+            const timeStr = new Date().toLocaleTimeString('fa-IR');
+            const el = document.createElement('div');
+
+            let colorClass = 'text-gray-300';
+            if (type === 'error') colorClass = 'text-red-400 font-bold';
+            if (type === 'success') colorClass = 'text-emerald-400 font-bold';
+            if (type === 'warn') colorClass = 'text-amber-400';
+
+            el.className = `${colorClass} py-0.5 border-b border-gray-800/40`;
+            el.innerHTML = `<span class="text-gray-500">[${timeStr}]</span> ${escapeHtml(msg)}`;
+            
+            consoleDiv.appendChild(el);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('consoleLog').innerHTML = '';
+        }
+
+        function escapeHtml(text) {
+            if (typeof text !== 'string') text = JSON.stringify(text);
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        // Switch Tab inside Auth
+        function switchAuthTab(tab) {
+            const loginForm = document.getElementById('loginForm');
+            const regForm = document.getElementById('registerForm');
+            const tabLoginBtn = document.getElementById('tabLoginBtn');
+            const tabRegBtn = document.getElementById('tabRegisterBtn');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+                tabLoginBtn.className = "flex-1 py-3 font-semibold text-center border-b-2 border-cyan-400 text-cyan-400";
+                tabRegBtn.className = "flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200";
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+                tabRegBtn.className = "flex-1 py-3 font-semibold text-center border-b-2 border-emerald-400 text-emerald-400";
+                tabLoginBtn.className = "flex-1 py-3 font-semibold text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200";
+            }
+        }
+
+        // Auth Handling
+        async function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            logMessage(`در حال ارسال درخواست ورود برای ${username}...`);
+            const res = await apiCall('/api/v1/login', 'POST', { username, password });
+
+            if (res.success) {
+                logMessage(`ورود موفقیت‌آمیز بود! کاربر: ${res.data.username} (ID: ${res.data.id})`, 'success');
+                fetchUserInfo();
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            const front = document.getElementById('regFront').value;
+
+            logMessage(`در حال ثبت‌نام کاربر جدید ${username} در جبهه ${front}...`);
+            const res = await apiCall('/api/v1/register', 'POST', { username, password, front });
+
+            if (res.success) {
+                logMessage(`ثبت‌نام با موفقیت انجام شد! اکنون می‌توانید وارد شوید.`, 'success');
+                switchAuthTab('login');
+                document.getElementById('loginUsername').value = username;
+            }
+        }
+
+        async function logout() {
+            currentUser = null;
+            document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('gameDashboard').classList.add('hidden');
+            document.getElementById('userHeaderBar').classList.add('hidden');
+            logMessage(`از حساب کاربری خارج شدید.`);
+        }
+
+        // Fetch Current User Info (/api/v1/info)
+        async function fetchUserInfo() {
+            const res = await apiCall('/api/v1/info', 'GET');
+            if (res.success) {
+                currentUser = res.data;
+                renderUserInfo(currentUser);
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('gameDashboard').classList.remove('hidden');
+                document.getElementById('userHeaderBar').classList.remove('hidden');
+                logMessage(`اطلاعات پروفایل دریافت شد.`, 'info');
+            }
+        }
+
+        function renderUserInfo(user) {
+            document.getElementById('navUsername').innerText = user.username || '---';
+            
+            // Render Front Tag
+            const frontElem = document.getElementById('navFront');
+            frontElem.innerText = user.front || '---';
+            if (user.front === 'mahdi') frontElem.className = 'px-2 py-0.5 text-xs rounded font-bold uppercase bg-cyan-950 text-cyan-400 border border-cyan-800';
+            else if (user.front === 'fere') frontElem.className = 'px-2 py-0.5 text-xs rounded font-bold uppercase bg-red-950 text-red-400 border border-red-800';
+            else if (user.front === 'gooji') frontElem.className = 'px-2 py-0.5 text-xs rounded font-bold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800';
+
+            document.getElementById('navCoin').innerText = user.coin !== undefined ? user.coin.toLocaleString() : 0;
+            document.getElementById('displayUserId').innerText = `#${user.id || 0}`;
+            
+            // Format time
+            if (user.last_get_coin) {
+                const dt = new Date(user.last_get_coin);
+                document.getElementById('lastGetCoinTime').innerText = dt.toLocaleTimeString('fa-IR') + ' - ' + dt.toLocaleDateString('fa-IR');
+            }
+
+            // Render Factory Counts
+            document.getElementById('cntFactoryT1').innerText = user.factory_T1 || 0;
+            document.getElementById('cntFactoryT2').innerText = user.factory_T2 || 0;
+            document.getElementById('cntFactoryT3').innerText = user.factory_T3 || 0;
+            document.getElementById('cntFactoryT4').innerText = user.factory_T4 || 0;
+
+            // Render Missile Counts
+            document.getElementById('cntMissileT1').innerText = user.missile_T1 || 0;
+            document.getElementById('cntMissileT2').innerText = user.missile_T2 || 0;
+            document.getElementById('cntMissileT3').innerText = user.missile_T3 || 0;
+            document.getElementById('cntMissileT4').innerText = user.missile_T4 || 0;
+
+            // Render Queue
+            renderQueue(user.queue || []);
+        }
+
+        function renderQueue(queue) {
+            const tbody = document.getElementById('queueTableBody');
+            tbody.innerHTML = '';
+
+            if (!queue || queue.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500">هیچ سفارشی در صف ساخت نیست.</td></tr>`;
+                return;
+            }
+
+            queue.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-brand-dark/50 transition';
+                const readyDate = item.ready_at ? new Date(item.ready_at).toLocaleTimeString('fa-IR') : '---';
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-cyan-400">#${item.id}</td>
+                    <td class="p-3 font-bold">${item.model}</td>
+                    <td class="p-3 font-mono text-amber-300">${item.count}</td>
+                    <td class="p-3 font-mono text-xs text-gray-400">${readyDate}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Game Operations
+        async function requestGetCoin() {
+            logMessage('در حال درخواست سکه...');
+            const res = await apiCall('/api/v1/get_coin', 'POST');
+            if (res.success) {
+                const msg = res.data.message || 'سکه با موفقیت دریافت شد.';
+                logMessage(`[پاسخ]: ${msg} | موجودی جدید: ${res.data.coin}`, 'success');
+                fetchUserInfo();
+            }
+        }
+
+        async function requestGetMissiles() {
+            logMessage('در حال درخواست دریافت موشک‌ها...');
+            const res = await apiCall('/api/v1/get_missiles', 'POST');
+            if (res.success) {
+                const msg = res.data.message || 'عملیات با موفقیت انجام شد.';
+                logMessage(`[پاسخ]: ${msg}`, 'success');
+                fetchUserInfo();
+            }
+        }
+
+        async function buyFactory(factoryType, inputId) {
+            const count = parseInt(document.getElementById(inputId).value) || 1;
+            logMessage(`در حال خرید ${count} عدد کارخانه ${factoryType}...`);
+            
+            const res = await apiCall('/api/v1/buy_factory', 'POST', {
+                factory_type: factoryType,
+                count: count
+            });
+
+            if (res.success) {
+                const msg = res.data.message || 'کارخانه با موفقیت خریداری شد.';
+                logMessage(`[پاسخ]: ${msg} | سکه باقی‌مانده: ${res.data.coin}`, 'success');
+                fetchUserInfo();
+            }
+        }
+
+        async function buyMissile(missileType, inputId) {
+            const count = parseInt(document.getElementById(inputId).value) || 1;
+            logMessage(`در حال ثبت سفارش ${count} موشک نوع ${missileType}...`);
+
+            const res = await apiCall('/api/v1/buy_missile', 'POST', {
+                missile_type: missileType,
+                count: count
+            });
+
+            if (res.success) {
+                const msg = res.data.message || 'سفارش موشک با موفقیت ثبت شد.';
+                logMessage(`[پاسخ]: ${msg} | سکه باقی‌مانده: ${res.data.coin}`, 'success');
+                fetchUserInfo();
+            }
+        }
+
+        async function handleAttack(e) {
+            e.preventDefault();
+            const tid = parseInt(document.getElementById('attackTid').value);
+            const missileType = document.getElementById('attackMissileType').value;
+            const factoryType = document.getElementById('attackFactoryType').value;
+            const count = parseInt(document.getElementById('attackCount').value) || 1;
+
+            if (!tid) {
+                logMessage('لطفاً شناسه هدف (Tid) معتبر وارد کنید.', 'warn');
+                return;
+            }
+
+            logMessage(`در حال ارسال ${count} موشک ${missileType} به کارخانه ${factoryType} هدف #${tid}...`, 'warn');
+
+            const res = await apiCall('/api/v1/attack', 'POST', {
+                Tid: tid,
+                missile_type: missileType,
+                factory_type: factoryType,
+                count: count
+            });
+
+            if (res.success) {
+                const msg = res.data.message || 'عملیات حمله اجرا شد.';
+                logMessage(`[نتیجه حمله]: ${msg}`, 'success');
+                fetchUserInfo();
+            }
+        }
+
+        async function fetchLeaderboard() {
+            logMessage('در حال دریافت جدول رده‌بندی...');
+            const res = await apiCall('/api/v1/leaderboard', 'GET');
+            
+            if (res.success && res.data.user_list) {
+                renderLeaderboard(res.data.user_list);
+                logMessage(`جدول رده‌بندی به‌روزرسانی شد. (${res.data.user_list.length} بازیکن)`, 'info');
+            }
+        }
+
+        function renderLeaderboard(userList) {
+            const tbody = document.getElementById('leaderboardTableBody');
+            tbody.innerHTML = '';
+
+            if (userList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-500">هیچ بازیکنی ثبت نشده است.</td></tr>`;
+                return;
+            }
+
+            userList.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-brand-dark/50 transition';
+
+                let frontBadge = `<span class="px-2 py-0.5 text-xs rounded uppercase font-bold bg-gray-800 text-gray-300">${u.front}</span>`;
+                if (u.front === 'mahdi') frontBadge = `<span class="px-2 py-0.5 text-xs rounded uppercase font-bold bg-cyan-950 text-cyan-400 border border-cyan-800">mahdi</span>`;
+                if (u.front === 'fere') frontBadge = `<span class="px-2 py-0.5 text-xs rounded uppercase font-bold bg-red-950 text-red-400 border border-red-800">fere</span>`;
+                if (u.front === 'gooji') frontBadge = `<span class="px-2 py-0.5 text-xs rounded uppercase font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">gooji</span>`;
+
+                tr.innerHTML = `
+                    <td class="p-3 text-center font-mono text-xs text-gray-400">#${u.id}</td>
+                    <td class="p-3 font-bold text-white flex items-center gap-2">
+                        ${escapeHtml(u.username)}
+                        ${currentUser && currentUser.id === u.id ? '<span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded">شما</span>' : ''}
+                    </td>
+                    <td class="p-3">${frontBadge}</td>
+                    <td class="p-3 font-mono font-bold text-amber-400">${(u.coin || 0).toLocaleString()}</td>
+                    <td class="p-3 font-mono text-xs text-gray-300">
+                        F1:${u.factory_T1||0} | F2:${u.factory_T2||0} | F3:${u.factory_T3||0} | F4:${u.factory_T4||0}
+                    </td>
+                    <td class="p-3 font-mono text-xs text-red-400">
+                        M1:${u.missile_T1||0} | M2:${u.missile_T2||0} | M3:${u.missile_T3||0} | M4:${u.missile_T4||0}
+                    </td>
+                    <td class="p-3 text-center">
+                        ${currentUser && currentUser.id !== u.id ? `
+                            <button onclick="selectAttackTarget(${u.id})" class="bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white px-2.5 py-1 rounded text-xs transition border border-red-500/30">
+                                <i class="fa-solid fa-crosshairs"></i> هدف‌گیری
+                            </button>
+                        ` : '<span class="text-xs text-gray-600">---</span>'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function selectAttackTarget(targetId) {
+            showSection('attack');
+            document.getElementById('attackTid').value = targetId;
+            logMessage(`هدف #${targetId} انتخاب شد. آماده تنظیم نوع و تعداد موشک...`, 'warn');
+        }
+
+        // Section Tabs Navigation
+        function showSection(sectionName) {
+            const sections = ['factories', 'missiles', 'attack', 'leaderboard'];
+            sections.forEach(s => {
+                const el = document.getElementById('section' + capitalize(s));
+                const btn = document.getElementById('navTab' + capitalize(s));
+                if (s === sectionName) {
+                    el.classList.remove('hidden');
+                    btn.className = "tab-btn px-5 py-2.5 rounded-xl font-bold text-sm bg-cyan-500/10 border border-cyan-500/40 text-cyan-400 flex items-center gap-2";
+                } else {
+                    el.classList.add('hidden');
+                    btn.className = "tab-btn px-5 py-2.5 rounded-xl font-bold text-sm bg-brand-card border border-brand-border text-gray-400 hover:text-white flex items-center gap-2";
+                }
+            });
+
+            if (sectionName === 'leaderboard') {
+                fetchLeaderboard();
+            }
+        }
+
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        // Auto Check session on page load
+        window.onload = function() {
+            logMessage('بررسی وضعیت احراز هویت اولیه...');
+            fetchUserInfo();
+        };
+    </script>
+</body>
+</html>
