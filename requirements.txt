@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlmodel
+sqlalchemy
+aiosqlite
+python-jose[cryptography]
+python-dotenv
+pydantic
