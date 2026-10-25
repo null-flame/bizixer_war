@@ -9,12 +9,12 @@ router = APIRouter(tags=["factory"])
 
 
 @router.post("/buy_factory", response_model=BuyFactoryO)
-async def buy_factory_endpoint(factory: BuyFactoryI, user: UserO = Depends(get_user)):
+async def buy_factory_endpoint(factory: BuyFactoryI, user: UserO = Depends(get_user), db: AsyncSession = Depends(get_session)):
     if factory.count <= 0:
         raise HTTPException(
             status_code=400,
             detail="میزان خرید نمیتواند صفر یا کمتر از صفر باشد!"
         )
-    await get_coin(user.id)
-    coin = await buyFactory(user.id, factory.count, factory.factory_type)
+    await get_coin(user.id, db=db)
+    coin = await buyFactory(user.id, factory.count, factory.factory_type, db=db)
     return BuyFactoryO(message="Factory bought successfully", coin=coin)

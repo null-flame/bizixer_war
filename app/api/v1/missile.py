@@ -21,7 +21,7 @@ async def buy_missile_endpoint(
             status_code=400,
             detail="میزان خرید نمیتواند صفر یا کمتر از صفر باشد!"
         )
-    await get_coin(user.id)
+    await get_coin(user.id, db)
     coin = await buyMissile(user.id, data.count, data.missile_type, db)
     return buy_missile_out(message="Missile purchase initiated", coin=coin)
 

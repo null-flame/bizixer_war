@@ -23,9 +23,9 @@ async def get_missiles(id: int, db: AsyncSession):
     res: list[Queue] = res.all()
     now = datetime.now(timezone.utc)
     for i in res:
-        if i.create_time.tzinfo is None:
-            i.create_time = i.create_time.replace(tzinfo=timezone.utc)
-        if i.create_time < now:
+        if i.ready_at.tzinfo is None:
+            i.ready_at = i.ready_at.replace(tzinfo=timezone.utc)
+        if i.ready_at < now:
             if i.model == TType.T1:
                 r.missile_T1 += i.count
             if i.model == TType.T2:
@@ -44,7 +44,7 @@ async def get_lasted_create(id: int, db: AsyncSession) -> datetime:
     r: Optional[Queue] = r.first()
     if r is None:
         return datetime.now(timezone.utc)
-    return r.create_time
+    return r.ready_at
 
 
 async def buyMissile(id: int, count: int, missile_type: TType, db: AsyncSession):
@@ -60,15 +60,12 @@ async def buyMissile(id: int, count: int, missile_type: TType, db: AsyncSession)
     r.coin -= total_cost
     create_time = await get_lasted_create(id, db)
     create_time = create_time + timedelta(minutes=missile_time[missile_type] * count)
-    queue = Queue(count=count, model=missile_type, create_time=create_time, user=r)
+    queue = Queue(count=count, model=missile_type, ready_at=create_time, user=r)
     coin = r.coin
     db.add(queue)
-    try:
-        await db.commit()
-        await db.refresh(r)
-    except Exception:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail="Error occurred while buying factories")
+    await db.commit()
+    await db.refresh(r)
+
     return coin
 
 

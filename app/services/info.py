@@ -17,7 +17,6 @@ async def get_info(id: int, db: AsyncSession):
     r: list[Queue] = r.all()
     user_data = user.model_dump()
     user_data["queue"] = r
-
     return UserIO.model_validate(user_data)
 
 
