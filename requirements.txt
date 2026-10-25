@@ -1,8 +1,43 @@
-fastapi
-uvicorn
-sqlmodel
-sqlalchemy
-aiosqlite
-python-jose[cryptography]
-python-dotenv
-pydantic
+# Bizixer War - Requirements File
+# ================================
+# A strategic war game built with FastAPI, SQLModel, and SQLite
+# Python 3.10+ required
+
+# Web Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Database & ORM
+sqlmodel>=0.0.16
+sqlalchemy>=2.0.23
+aiosqlite>=0.19.0
+
+# Authentication & Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Environment & Configuration
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+
+# Async Support
+anyio>=4.0.0
+httpx>=0.26.0
+
+# Development & Testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+httpx>=0.26.0
+pytest-cov>=4.1.0
+
+# Type Checking
+mypy>=1.8.0
+
+# Code Quality
+ruff>=0.1.0
+black>=24.0.0
+isort>=5.13.0
+
+# Documentation
+mkdocs>=1.5.0
+mkdocs-material>=9.5.0
